@@ -64,6 +64,35 @@ The [validation PDF](report/model_validation.pdf), the [findings](report/finding
 - Calibration and risk-model variants share forward log-moneyness quote nodes. The synthetic PLA uses strict green thresholds of Spearman above 0.80 and KS below 0.09. Red means Spearman below 0.70 or KS above 0.12. Other finite pairs are amber. Each path contains 250 observations.
 - The certainty of small-sample barrier, jump and calibration conclusions is limited. Model comparisons from full and quick configurations depend on their own path budgets and simulation schedules.
 
+## Interest-rate extension
+
+The rates entry point runs R1–R3 for a physically settled 10NC1 payer Bermudan in two
+G2++ worlds and a Hull–White control. It builds the OIS curve, checks the European
+and Bermudan pricers, fits co-terminal volatility, compares exercise and hedge
+policies, and revalues a frozen book over a fixed 250-business-day PLA window.
+
+From the project directory in Windows:
+
+```cmd
+.\.venv\Scripts\python.exe -m quantproj.rates --config experiments/rates/quick.yaml --output output/rates/quick
+.\.venv\Scripts\python.exe -m quantproj.rates --config experiments/rates/full.yaml --output output/rates/full
+```
+
+Install the project with the AAD extra for the rates runner. The Make equivalents
+are `make rates-quick` and `make rates-report`.
+The quick preset uses small samples to check the workflows. The full preset takes
+daily hedge decisions, uses more paths and a finer numerical mesh, and adds three
+trader mean reversions in the hedge study. Set `--workers N` to change the number
+of independent hedge paths calculated in parallel.
+
+The output directory contains the rates validation PDF, figures, quote and
+calibration diagnostics, paired hedge intervals, annuity reconciliation and PLA
+windows. The PLA compares a hedged frozen book under two data conventions: true
+G2++ marks against the HW desk, and a front-office G2++ against HW and two-factor
+G2++ risk desks on one shared quote snapshot. The [rates validation PDF](report/rates/rates_validation.pdf)
+comes from the full run, which took about 50 minutes on 24 threads. See
+[the rates chapter](report/rates/README.md) for its main observations and report regeneration.
+
 ## Continuous integration
 
 The [GitHub Actions workflow](.github/workflows/ci.yml) installs both development and AAD extras and runs Ruff, mypy, standard tests and the marked slow tests on Python 3.11 and 3.12. The slow tests run on 3.12 only. The badge at the top of this page shows the status of the latest run.

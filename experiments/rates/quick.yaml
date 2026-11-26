@@ -1,0 +1,47 @@
+name: rates-quick
+seed: 601126
+workers: 1
+origin: '2025-01-02'
+initial_curve: {level: 0.037, slope: -0.018, curvature: 0.006, tau: 3.0}
+market: {hw_a: 0.06, hw_sigma: 0.011}
+pricing:
+  european_paths: 12000
+  hw_grid: 49
+  adi_grid: 25
+  adi_steps: 8
+  lsmc_training: 600
+  dual_outer: 192
+  dual_inner: 24
+calibration:
+  mean_reversion: 0.06
+  mean_reversion_grid: [0.025, 0.06, 0.15]
+  ois_noise_bp: 0.15
+  normal_noise_bp: 0.30
+  smile_offsets_bp: [-25, 25]
+  daily_smile_offsets_bp: []
+  desk_grid: 33
+  desk_steps: 3
+  integration_order: 24
+  replicates: 1
+exercise: {paths: 10}
+hedging:
+  paths: 2
+  frequencies: [63, 126]
+  swap_tenors: [2Y, 5Y, 10Y]
+  cost_multipliers: [0.0, 1.0]
+  position_cap: 4.0
+  swap_cost_bp: 0.30
+  option_half_spread_bp: 0.80
+  hedge_mean_reversions: [0.06]
+pnl:
+  paths: 1
+  start: '2025-10-02'
+  adi_grid: 31
+  adi_steps: 12
+  # Front-office G2++ and a two-factor risk desk share the daily quote snapshot and its
+  # calibration quotes. Mean reversions and correlation are structural inputs; both desks
+  # refit the two factor volatilities each day. The risk desk rounds them and uses a coarser grid.
+  front_office: {reversions: [0.7735, 0.082], rho: -0.702, grid: 31, steps: 12, wings: true}
+  risk_g2: {reversions: [0.75, 0.08], rho: -0.70, grid: 25, steps: 8, wings: true}
+reconciliation: {paths: 768, grid_refinements: [1, 4], frequencies: [1, 5, 10]}
+

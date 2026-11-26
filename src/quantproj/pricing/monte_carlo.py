@@ -2,6 +2,7 @@
 
 import numpy as np
 
+from quantproj.core.numerics.regression import fit_continuation
 from quantproj.models import Paths
 
 
@@ -44,7 +45,7 @@ def lsmc(paths: Paths, strike, maturity, rate, *, put=True, stochastic_variance=
             basis = np.column_stack(columns)
             if train.sum() < 3 * basis.shape[1]:
                 continue
-            coef = np.linalg.lstsq(basis[train], cash[train], rcond=1e-8)[0]
+            coef = fit_continuation(basis[train], cash[train])
             continuation = basis @ coef
             exercise = (train | candidates) & (intrinsic[i] > np.maximum(continuation, 0))
             cash[exercise] = intrinsic[i, exercise]

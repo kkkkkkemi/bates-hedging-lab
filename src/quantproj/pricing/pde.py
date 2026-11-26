@@ -8,6 +8,7 @@ from scipy import sparse
 from scipy.interpolate import CubicSpline, RectBivariateSpline
 from scipy.sparse.linalg import splu
 
+from quantproj.core.numerics.adi import THETA, adi_step
 from quantproj.models import Bates
 from quantproj.pricing.black import price as black_price
 
@@ -153,7 +154,7 @@ def adi_grid(
     Project at contractual monitor dates only. American exercise uses the
     Ikonen–Toivanen multiplier update on the same time grid.
     """
-    theta = {"douglas": 0.5, "cs": 0.5, "hv": 0.5 + np.sqrt(3) / 6}[method]
+    theta = THETA[method]
     x = _spot_grid(strike, nx, barrier)
     s = np.exp(x)
     v = np.linspace(0, vmax, nv + 1)
@@ -230,23 +231,24 @@ def adi_grid(
             )
             if american:
                 low, high = max(low, payoff[0]), max(high, payoff[-1])
-            explicit = value + step * (total @ value + multiplier)
 
             def boundary(arr):
                 arr[: len(v)] = low
                 arr[-len(v) :] = high
                 return arr
 
-            y = sx.solve(boundary(explicit - theta * step * (ax @ value)))
-            y = sv.solve(boundary(y - theta * step * (av @ value)))
-            if method == "cs":
-                corrected = explicit + 0.5 * step * (a0 @ (y - value))
-                zz = sx.solve(boundary(corrected - theta * step * (ax @ value)))
-                y = sv.solve(boundary(zz - theta * step * (av @ value)))
-            elif method == "hv":
-                corrected = explicit + 0.5 * step * (total @ (y - value))
-                zz = sx.solve(boundary(corrected - theta * step * (ax @ y)))
-                y = sv.solve(boundary(zz - theta * step * (av @ y)))
+            y = adi_step(
+                value,
+                step,
+                method,
+                a0,
+                ax,
+                av,
+                total,
+                (sx.solve, sv.solve),
+                boundary=boundary,
+                source=multiplier,
+            )
             if american:
                 value = np.maximum(y - step * multiplier, payoff)
                 multiplier = np.maximum(0, multiplier + (payoff - y) / step)
