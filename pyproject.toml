@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bates-hedging-lab"
+version = "1.0.0"
+requires-python = ">=3.11"
+dependencies = ["numpy>=1.26", "scipy>=1.12", "matplotlib>=3.8", "reportlab>=4", "PyYAML>=6"]
+
+[project.optional-dependencies]
+aad = ["jax>=0.4.30"]
+dev = ["pytest>=8", "ruff>=0.9", "mypy>=1.13", "QuantLib>=1.35"]
+
+[project.scripts]
+quantproj = "quantproj.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["slow: numerical convergence and integration tests"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 110
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.mypy]
+python_version = "3.11"
+files = ["src"]
+ignore_missing_imports = true
+disable_error_code = ["arg-type", "assignment", "index", "return-value", "operator", "var-annotated"]

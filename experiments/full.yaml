@@ -1,0 +1,55 @@
+name: full
+seed: 2601126
+# Worker processes for independent paths and fits; 0 uses every logical CPU.
+workers: 0
+market:
+  v0: 0.0576
+  kappa: 2.03
+  theta: 0.04
+  xi: 0.38
+  rho: -0.7
+  intensity: 0.59
+  jump_mean: -0.05
+  jump_vol: 0.07
+  rate: 0.02
+surface:
+  tenors: [0.028, 0.055, 0.085, 0.16, 0.25, 0.5, 0.75, 1.0, 1.5]
+  log_moneyness: [-0.17, -0.13, -0.095, -0.06, -0.03, 0.0, 0.03, 0.06, 0.095, 0.13, 0.17]
+  cos_modes: 160
+  noise: 1.0
+pricing:
+  mc_paths: 140000
+  days: 42
+  pde_nx: 182
+  pde_nv: 45
+calibration:
+  bootstrap: 32
+  global_iterations: 30
+  profile_points: 15
+hedging:
+  days: 63
+  substeps: 4
+  paths: 96
+  barrier_paths: 12
+  control_paths: 18000
+  reconcile_factor: 4
+  frequencies: [1, 2, 4, 8, 16, 24]
+  stock_cost: 0.0005
+  costs: [0.0, 0.00025, 0.0005, 0.001]
+  option_cap: 3.0
+  tool_tenor_days: 126
+  extension: true
+greeks:
+  days: 42
+  paths: 60000
+  scan_points: 27
+  heston_nx: 360
+  heston_nv: 80
+  aad: true
+pnl:
+  paths: 32
+commodity:
+  paths: 128
+  mc_paths: 140000
+  steps: 28
+  inner_paths: 1024
