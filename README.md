@@ -1,5 +1,7 @@
 # Bates Hedging Laboratory
 
+[![Python validation](https://github.com/kkkkkkemi/bates-hedging-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/kkkkkkemi/bates-hedging-lab/actions/workflows/ci.yml)
+
 A Python research project on model risk in delta and delta-vega hedging. A synthetic Bates market generates option marks and observable quotes. Black–Scholes and calibrated Heston supply trader Greeks. True Heston, Black–Scholes and same-grid, full-information Bates controls identify the roles of instrument coverage, information and trading frequency.
 
 | Experiment | Implementation | Evidence |
@@ -64,7 +66,7 @@ The [validation PDF](report/model_validation.pdf), the [findings](report/finding
 
 ## Continuous integration
 
-The [GitHub Actions workflow](.github/workflows/ci.yml) installs both development and AAD extras and runs Ruff, mypy, standard tests and the marked slow tests. When publishing the repository, configure its workflow badge with the repository URL. The [badge URL format](https://docs.github.com/en/actions/monitoring-and-troubleshooting-workflows/monitoring-workflows/adding-a-workflow-status-badge) uses the owner, repository and workflow filename.
+The [GitHub Actions workflow](.github/workflows/ci.yml) installs both development and AAD extras and runs Ruff, mypy, standard tests and the marked slow tests on Python 3.11 and 3.12. The slow tests run on 3.12 only. The badge at the top of this page shows the status of the latest run.
 
 ## Method references
 
