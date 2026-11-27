@@ -630,13 +630,16 @@ def r3(output, config, worlds, product, origin, solutions):
     settings = {**settings, **config["pnl"]}
     xs, bs = simulate(base, times[:n], config["pnl"]["paths"], seed + 1350)
     pnl, metrics = [], []
+    extras: dict[str, list] = {"sensitivity_daily": [], "sensitivity": [], "calibration": []}
     pla_jobs = [
         (base, times[:n], asofs[:n], xs, bs, product, solutions["g2_base"], warmup, settings, seed + 1450, p)
         for p in range(xs.shape[1])
     ]
-    for rows, stats in pmap(_pla_job, pla_jobs):
+    for rows, stats, extra in pmap(_pla_job, pla_jobs):
         pnl.extend(rows)
         metrics.extend(stats)
+        for key in extras:
+            extras[key].extend(extra[key])
     write_csv(
         output,
         "pnl_explain",
@@ -677,6 +680,31 @@ def r3(output, config, worlds, product, origin, solutions):
             "aligned_g2_zone",
         ],
         metrics,
+    )
+    write_csv(
+        output,
+        "pla_sensitivity_daily",
+        ["path", "day", "date", "variant", "hpl_front_office", "rtpl_g2"],
+        extras["sensitivity_daily"],
+    )
+    write_csv(output, "pla_sensitivity", ["path", "variant", "spearman", "ks", "zone"], extras["sensitivity"])
+    write_csv(
+        output,
+        "pla_desk_calibration",
+        [
+            "path",
+            "day",
+            "date",
+            "phase",
+            "desk",
+            "sigma",
+            "eta",
+            "rho",
+            "rmse_bp",
+            "success",
+            "fallback",
+        ],
+        extras["calibration"],
     )
 
 

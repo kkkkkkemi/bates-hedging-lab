@@ -43,5 +43,9 @@ pnl:
   # refit the two factor volatilities each day. The risk desk rounds them and uses a coarser grid.
   front_office: {reversions: [0.7735, 0.082], rho: -0.702, grid: 61, steps: 40, wings: true}
   risk_g2: {reversions: [0.75, 0.08], rho: -0.70, grid: 41, steps: 20, wings: true}
+  # PLA sensitivities: refit rho daily on both desks; risk desk calibrated to ATM quotes only.
+  pla_sensitivity:
+    - {name: daily_rho, front_office: {rho: null}, risk_g2: {rho: null}}
+    - {name: risk_atm_only, risk_g2: {wings: false}}
 reconciliation: {paths: 8192, grid_refinements: [1, 4], frequencies: [1, 5, 10, 21]}
 

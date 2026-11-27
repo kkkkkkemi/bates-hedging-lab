@@ -77,12 +77,17 @@ class Solution:
             if abs(self.times[idx] - t) > 1e-9 or idx not in self.continuation:
                 raise ValueError("Continuation requested outside an exercise date.")
             return max(self._interp(self.continuation[idx], z), 0.0)
+        if t > self.times[-1] + 1e-10:
+            # Every exercise right has lapsed after the last exercise date.
+            return 0.0
         m = int(np.clip(np.searchsorted(self.times, t), 0, len(self.times) - 1))
         if m == 0 or abs(self.times[m] - t) < 1e-10:
             return max(self._interp(self.values[m], z), 0.0)
         q = (t - self.times[m - 1]) / (self.times[m] - self.times[m - 1])
-        # The limit from the left includes that date's exercise opportunity.
-        return max(self._interp(self.values[m - 1] * (1 - q) + self.values[m] * q, z), 0.0)
+        # Just after an exercise date that right has lapsed, so a live contract starts from the
+        # continuation slice. The right endpoint keeps any exercise right still ahead at times[m].
+        left = self.continuation.get(m - 1, self.values[m - 1])
+        return max(self._interp(left * (1 - q) + self.values[m] * q, z), 0.0)
 
     def price(self, t, state, continue_only=False):
         return self.normalized(t, state, continue_only) * self.model.bond(t, self.swap.dates[-1], state)

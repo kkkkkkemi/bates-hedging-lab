@@ -52,6 +52,38 @@ def _aligned_metrics(daily, hpl_column, rtpl_column):
     return list(pla([r[hpl_column] for r in daily], [r[rtpl_column] for r in daily]))
 
 
+def desk_plan(settings):
+    """Distinct G2++ desk configurations and the HPL/RTPL pair of each PLA comparison.
+
+    The main comparison pairs ``front_office`` with ``risk_g2``. Each entry of
+    ``pla_sensitivity`` overrides either side; identical configurations share one
+    daily calibration and valuation.
+    """
+    if "front_office" not in settings or "risk_g2" not in settings:
+        return {}, {}
+    desks: dict[str, dict] = {}
+
+    def register(label, cfg):
+        for key, known in desks.items():
+            if known == cfg:
+                return key
+        desks[label] = cfg
+        return label
+
+    pairs = {
+        "main": (
+            register("front_office", dict(settings["front_office"])),
+            register("risk_g2", dict(settings["risk_g2"])),
+        )
+    }
+    for variant in settings.get("pla_sensitivity", ()):
+        name = variant["name"]
+        fo = {**settings["front_office"], **variant.get("front_office", {})}
+        risk = {**settings["risk_g2"], **variant.get("risk_g2", {})}
+        pairs[name] = (register(f"{name}/front_office", fo), register(f"{name}/risk_g2", risk))
+    return desks, pairs
+
+
 def run_pla(model, dates, asofs, states, banks, product, price, warmup, settings, seed, path_ids=None):
     """Frozen-book HPL and RTPL over a fixed 250-day window.
 
@@ -61,17 +93,20 @@ def run_pla(model, dates, asofs, states, banks, product, price, warmup, settings
     alignment allows, and the one- and two-factor risk models supply competing RTPLs.
     """
     a = settings["mean_reversion"]
-    aligned = "front_office" in settings and "risk_g2" in settings
+    desks, pairs = desk_plan(settings)
+    aligned = bool(desks)
     smile = settings.get("daily_smile_offsets_bp", ()) if aligned else ()
     pnl, metrics = [], []
+    sensitivity_daily, sensitivity, calibration_log = [], [], []
     for path in range(states.shape[1]) if path_ids is None else path_ids:
         bank_at = _bank_view(dates, banks[:, path])
         contract, solution = product, price
         x0 = states[0, path]
-        warm: dict[str, tuple | None] = {"front_office": None, "risk_g2": None}
+        warm: dict[str, tuple | None] = {name: None for name in desks}
+        stamp = {"day": None, "phase": "close"}
 
         def desk(name):
-            cfg = settings[name]
+            cfg = desks[name]
 
             def value_tail(snapshot, tail):
                 fit = desk_g2.calibrate(
@@ -81,8 +116,29 @@ def run_pla(model, dates, asofs, states, banks, product, price, warmup, settings
                     start=warm[name],
                     rho=cfg.get("rho"),
                 )
-                warm[name] = (fit.sigma, fit.eta, fit.rho)
-                return desk_g2.bermudan(snapshot, cfg["reversions"], fit, tail, cfg["grid"], cfg["steps"])
+                fallback = not fit.success and warm[name] is not None
+                if fallback:
+                    # A failed fit keeps the previous day's parameters and is not a warm start.
+                    used = desk_g2.G2Fit(*warm[name], fit.rmse_bp, False)
+                else:
+                    used = fit
+                    warm[name] = (fit.sigma, fit.eta, fit.rho)
+                calibration_log.append(
+                    [
+                        path,
+                        stamp["day"],
+                        asofs[stamp["day"]].isoformat(),
+                        stamp["phase"],
+                        name,
+                        used.sigma,
+                        used.eta,
+                        used.rho,
+                        fit.rmse_bp,
+                        int(fit.success),
+                        int(fallback),
+                    ]
+                )
+                return desk_g2.bermudan(snapshot, cfg["reversions"], used, tail, cfg["grid"], cfg["steps"])
 
             return value_tail
 
@@ -102,14 +158,15 @@ def run_pla(model, dates, asofs, states, banks, product, price, warmup, settings
             def disc(ends):
                 return model.bond(t, ends, x)
 
-            rng = np.random.default_rng(np.random.SeedSequence([seed, path, day]))
+            stamp.update(day=day, phase="close")
+            snapshot_seed = np.random.SeedSequence([seed, path, day])
             market = observe(
                 model,
                 t,
                 x,
                 asofs[day],
                 contract,
-                rng,
+                np.random.default_rng(snapshot_seed),
                 settings["ois_noise_bp"],
                 settings["normal_noise_bp"],
                 smile_offsets=smile,
@@ -143,21 +200,31 @@ def run_pla(model, dates, asofs, states, banks, product, price, warmup, settings
                 for q, s in zip(h, hedges)
             )
             liabilities = {}
-            if aligned:
-                for name in ("front_office", "risk_g2"):
-                    liabilities[name] = _aligned_liability(
-                        market, t, contract, idx, event, bank_at, desk(name)
-                    )
+            for name in desks:
+                liabilities[name] = _aligned_liability(market, t, contract, idx, event, bank_at, desk(name))
             if previous is not None:
                 old_true, old_risk, old_quotes, old_vols, old_t, old_market, old_aligned = previous
                 coupon = sum(q * coupon_cash(s, t, bank_at) for q, s in zip(h, hedges))
                 hpl = true_value - old_true + coupon
                 rtpl = model_value - old_risk + coupon
+
+                def desk_pnl(name):
+                    return observed_assets - liabilities[name] - old_aligned[name] + coupon
+
                 if aligned:
-                    hpl_fo = (
-                        observed_assets - liabilities["front_office"] - old_aligned["front_office"] + coupon
-                    )
-                    rtpl_g2 = observed_assets - liabilities["risk_g2"] - old_aligned["risk_g2"] + coupon
+                    hpl_fo, rtpl_g2 = (desk_pnl(name) for name in pairs["main"])
+                    for variant, (fo_name, risk_name) in pairs.items():
+                        if variant != "main":
+                            sensitivity_daily.append(
+                                [
+                                    path,
+                                    day,
+                                    asofs[day].isoformat(),
+                                    variant,
+                                    desk_pnl(fo_name),
+                                    desk_pnl(risk_name),
+                                ]
+                            )
                 else:
                     hpl_fo = rtpl_g2 = np.nan
                 previous_vols = dict(zip(np.round(old_market + old_t, 9), old_vols))
@@ -210,18 +277,21 @@ def run_pla(model, dates, asofs, states, banks, product, price, warmup, settings
                 solution = g2_adi(
                     model, contract, t, n=settings["adi_grid"], steps_per_year=settings["adi_steps"]
                 )
+                # One close has one quote snapshot. The same seed redraws the identical OIS
+                # quotes first, then the same noise sequence for the new trade's strip by expiry.
                 market = observe(
                     model,
                     t,
                     x,
                     asofs[day],
                     contract,
-                    np.random.default_rng(np.random.SeedSequence([seed, path, day, 1])),
+                    np.random.default_rng(snapshot_seed),
                     settings["ois_noise_bp"],
                     settings["normal_noise_bp"],
                     smile_offsets=smile,
                 )
-                # The new trade is valued on the post-event snapshot by every desk.
+                stamp.update(phase="roll")
+                # The new trade is valued on the same close snapshot by every desk.
                 for name in liabilities:
                     liabilities[name] = _aligned_liability(
                         market, t, contract, -1, "none", bank_at, desk(name)
@@ -274,4 +344,16 @@ def run_pla(model, dates, asofs, states, banks, product, price, warmup, settings
                 *_aligned_metrics(daily, 11, 12),
             ]
         )
-    return pnl, metrics
+        for variant in pairs:
+            if variant != "main":
+                rows = [r for r in sensitivity_daily if r[0] == path and r[3] == variant]
+                sensitivity.append([path, variant, *_aligned_metrics(rows, 4, 5)])
+    return (
+        pnl,
+        metrics,
+        {
+            "sensitivity_daily": sensitivity_daily,
+            "sensitivity": sensitivity,
+            "calibration": calibration_log,
+        },
+    )

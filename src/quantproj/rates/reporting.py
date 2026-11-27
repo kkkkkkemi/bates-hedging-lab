@@ -332,6 +332,62 @@ def render(path, config):
         "uses a coarser ADI grid. A hedged book has small daily P&amp;L, so the remaining model gap "
         "decides the zone."
     )
+    labels = {
+        "daily_rho": "Both desks refit rho daily",
+        "risk_atm_only": "Risk desk fits ATM quotes only",
+    }
+    sens_file = path / "pla_sensitivity.csv"
+    if sens_file.exists():
+        sens = read(path, "pla_sensitivity")
+        rows = []
+        for variant in dict.fromkeys(r["variant"] for r in sens):
+            group = [r for r in sens if r["variant"] == variant]
+            counts = Counter(r["zone"] for r in group)
+            rhos = [float(r["spearman"]) for r in group if r["spearman"] not in ("", "nan")]
+            rows.append(
+                [
+                    labels.get(variant, variant),
+                    *(str(counts[z]) for z in ("green", "amber", "red")),
+                    f"{np.median(rhos):.2f}" if rhos else "n/a",
+                ]
+            )
+        if rows:
+            table(
+                ["G2++ risk desk sensitivity", "Green", "Amber", "Red", "Median Spearman"],
+                rows,
+                [210, 50, 50, 40, 95],
+            )
+            text(
+                "Each sensitivity changes one convention of the aligned G2++ comparison. A daily rho "
+                "refit is weakly identified by co-terminal quotes and moves both desks' marks with the "
+                "quote noise. A risk desk calibrated to a different quote set than the front office "
+                "has parameter noise that does not cancel in the comparison."
+            )
+    cal_file = path / "pla_desk_calibration.csv"
+    if cal_file.exists():
+        cal_rows = read(path, "pla_desk_calibration")
+        summary = []
+        for name in dict.fromkeys(r["desk"] for r in cal_rows):
+            group = [r for r in cal_rows if r["desk"] == name]
+            rmse = [float(r["rmse_bp"]) for r in group if r["rmse_bp"] not in ("", "nan")]
+            summary.append(
+                [
+                    name.replace("_", " "),
+                    str(len(group)),
+                    f"{np.median(rmse):.3f}" if rmse else "n/a",
+                    f"{100 * np.mean([r['success'] != '1' for r in group]):.1f}%",
+                    f"{100 * np.mean([r['fallback'] == '1' for r in group]):.1f}%",
+                ]
+            )
+        table(
+            ["G2++ desk", "Fits", "Median RMSE (vol bp)", "Not converged", "Previous-day fallback"],
+            summary,
+            [150, 50, 110, 80, 105],
+        )
+        text(
+            "A desk whose daily fit does not converge keeps the previous day's parameters for that "
+            "valuation and does not use the failed fit as the next starting point."
+        )
     p = read(path, "pnl_explain")
     for order in ("first", "second"):
         sq = np.mean([float(r[f"residual_{order}"]) ** 2 for r in p])

@@ -38,7 +38,7 @@ def test_pla_freezes_exercise_and_rolls_after_the_event():
         "adi_grid": 25,
         "adi_steps": 8,
     }
-    rows, metrics = run_pla(world, times, asofs, x, bank, contract, solution, warmup, settings, 4)
+    rows, metrics, _ = run_pla(world, times, asofs, x, bank, contract, solution, warmup, settings, 4)
     assert len(rows) == 250
     assert metrics[0][6:8] == [1, 0]
     event = rows[t1 - warmup]

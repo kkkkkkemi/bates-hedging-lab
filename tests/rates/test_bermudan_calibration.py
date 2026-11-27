@@ -134,3 +134,21 @@ def test_two_factor_desk_recovers_noise_free_g2_parameters():
     adi = g2_adi(world, s, n=41, steps_per_year=16).price(0.0, [0.0, 0.0])
     # The desk discounts on the bootstrapped log-linear OIS curve, not the Nelson–Siegel curve.
     assert desk_g2.bermudan(m, world.reversion, fit, s, 41, 16) == pytest.approx(adi, abs=2e-4)
+
+
+def test_bermudan_value_drops_the_lapsed_exercise_right():
+    curve = NelsonSiegel()
+    h = hw(curve, 0.06, [0.011])
+    s = nc1(ASOF, ASOF, curve.discount)
+    sol = hw_pde(h, s, n=121, steps_per_year=40)
+    t1 = s.dates[0]
+    gap = sol.times[1] - sol.times[0]
+    state = [0.05]
+    # Deep in the money the holder exercises on the date, so the two slices differ.
+    with_right = sol.price(t1, state)
+    live = sol.price(t1, state, continue_only=True)
+    assert with_right > live + 1e-3
+    after = sol.price(t1 + 1e-6 * gap, state)
+    assert after == pytest.approx(live, abs=1e-6)
+    assert sol.price(t1 - 1e-6 * gap, state) == pytest.approx(with_right, abs=1e-6)
+    assert sol.price(s.dates[-2] + 1e-3, state) == 0.0
