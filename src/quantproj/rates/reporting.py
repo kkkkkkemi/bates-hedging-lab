@@ -185,6 +185,34 @@ def render(path, config):
         f"{stats['amber']} amber and {stats['red']} red paths, with {exercised} actual "
         f"exercise{'' if exercised == 1 else 's'} in the windows.",
     ]
+    hedge = [
+        r
+        for r in read(path, "hedge_summary")
+        if r["holder"] == "true"
+        and float(r["cost_multiple"]) == 0
+        and float(r["a"]) == config["calibration"]["mean_reversion"]
+    ]
+
+    def hedge_sd(world, strategy, days):
+        rows = [
+            r for r in hedge if r["world"] == world and r["strategy"] == strategy and int(r["days"]) == days
+        ]
+        return float(rows[0]["sd"]) * 1e4 if rows else np.nan
+
+    daily = min(int(r["days"]) for r in hedge)
+    findings.append(
+        f"With {daily}-day rebalancing in the base G2++ world, the three-swap key-rate hedge has a "
+        f"discounted P&amp;L SD of {hedge_sd('g2_base', 'key_rate', daily):.1f} bp, against "
+        f"{hedge_sd('g2_base', 'single_delta', daily):.1f} bp for one-swap delta and "
+        f"{hedge_sd('g2_base', 'full_info_swaps', daily):.1f} bp for the full-information swap control."
+    )
+    vega = [float(r["sd"]) * 1e4 for r in hedge if r["strategy"] == "key_rate_vega"]
+    if vega:
+        days = sorted({int(r["days"]) for r in hedge})
+        findings.append(
+            f"Across both G2++ worlds and {', '.join(map(str, days))}-day rebalancing, the key-rate and "
+            f"vega hedge SD stays between {min(vega):.1f} and {max(vega):.1f} bp."
+        )
     if pla and "aligned_g2_zone" in pla[0]:
         for label, key in (("HW", "aligned_hw_zone"), ("G2++", "aligned_g2_zone")):
             counts = Counter(x[key] for x in pla)
@@ -338,5 +366,6 @@ def render(path, config):
     )
     document.build(story, onFirstPage=footer, onLaterPages=footer)
     (path / "findings.md").write_text(
-        "# Rates validation findings\n\n" + "".join(f"- {s}\n" for s in findings), encoding="utf-8"
+        "# Rates validation findings\n\n" + "".join(f"- {s.replace('&amp;', '&')}\n" for s in findings),
+        encoding="utf-8",
     )

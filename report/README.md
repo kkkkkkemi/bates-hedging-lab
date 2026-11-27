@@ -1,6 +1,6 @@
 # Validation report inputs
 
-The reporting code reads the run CSV and JSON artifacts and regenerates the PDF, findings and figures. Use the experiment configuration associated with the output directory. The PDF, findings and figures in this folder are copied from the full run.
+The reporting code reads the run CSV and JSON artifacts and regenerates the PDF, findings and figures. Use the experiment configuration associated with the output directory. The PDF, findings and figures in this folder are copied from the full run. [findings.md](findings.md) combines the findings lists of the equity full run (`output/full/findings.md`) and the rates full run (`output/rates/full/findings.md`). The rates PDF and figures are in [rates/](rates/README.md).
 
 ```text
 python -m quantproj --config experiments/full.yaml --output output/full --render-only

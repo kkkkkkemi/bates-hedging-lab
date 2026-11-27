@@ -37,7 +37,7 @@ The quick configuration runs every experiment family with small samples and disa
 
 ## Read the results
 
-The [validation PDF](report/model_validation.pdf), the [findings](report/findings.md) and the figures below come from the full configuration. The PDF follows the SR 11-7 headings and the findings report five numerical observations. On a 24-thread CPU the full run took about 29 minutes, of which hedging took 26. Run outputs are written under `output/`, which is not tracked. Regenerate them with the commands above.
+The [validation PDF](report/model_validation.pdf), the [findings](report/findings.md) and the figures below come from the full configuration. The PDF follows the SR 11-7 headings. The findings list numerical observations from the equity and rates full runs. On a 24-thread CPU the full run took about 29 minutes, of which hedging took 26. Run outputs are written under `output/`, which is not tracked. Regenerate them with the commands above.
 
 ![Hedge frequency comparison](report/hedge_frequency.png)
 
