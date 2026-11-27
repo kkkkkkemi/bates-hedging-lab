@@ -220,6 +220,20 @@ def render(path, config):
                 f"On the shared quote snapshot against the front-office G2++, the {label} risk desk "
                 f"has {counts['green']} green, {counts['amber']} amber and {counts['red']} red paths."
             )
+    if (path / "pla_sensitivity.csv").exists():
+        sens_rows = read(path, "pla_sensitivity")
+        parts = []
+        for variant, label in (
+            ("daily_rho", "refitting rho daily on both desks"),
+            ("risk_atm_only", "fitting the risk desk to ATM quotes only"),
+        ):
+            counts = Counter(r["zone"] for r in sens_rows if r["variant"] == variant)
+            if counts:
+                parts.append(
+                    f"{label} gives {counts['green']} green, {counts['amber']} amber and {counts['red']} red"
+                )
+        if parts:
+            findings.append(f"In the G2++ PLA sensitivities, {'; '.join(parts)} paths.")
     heading("Rates validation / Scope", "Bermudan exercise, pricing and hedging")
     text(
         "A synthetic G2++ OIS market with two parameter sets tests a co-terminal calibrated Hull–White "

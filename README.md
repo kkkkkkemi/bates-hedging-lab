@@ -90,7 +90,7 @@ calibration diagnostics, paired hedge intervals, annuity reconciliation and PLA
 windows. The PLA compares a hedged frozen book under two data conventions: true
 G2++ marks against the HW desk, and a front-office G2++ against HW and two-factor
 G2++ risk desks on one shared quote snapshot. The [rates validation PDF](report/rates/rates_validation.pdf)
-comes from the full run, which took about 50 minutes on 24 threads. See
+comes from the full run, which took about 60 minutes on 24 threads. See
 [the rates chapter](report/rates/README.md) for its main observations and report regeneration.
 
 ## Continuous integration
